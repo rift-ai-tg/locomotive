@@ -2,16 +2,18 @@ package main
 
 import (
 	"context"
-	"strings"
-	"log/slog"
-	"sync/atomic"
-	"regexp"
 	"fmt"
+	"log/slog"
+	"regexp"
+	"strings"
+	"sync/atomic"
 
-	"github.com/brody192/locomotive/internal/logger"
 	"github.com/brody192/locomotive/internal/config"
+	"github.com/brody192/locomotive/internal/deduplicator"
+	"github.com/brody192/locomotive/internal/logger"
 	"github.com/brody192/locomotive/internal/railway/subscribe/environment_logs"
 	"github.com/brody192/locomotive/internal/railway/subscribe/http_logs"
+	"github.com/brody192/locomotive/internal/util"
 	"github.com/brody192/locomotive/internal/webhook"
 )
 
@@ -26,16 +28,16 @@ var (
 
 func detectSeverityFromMessage(msg string) config.SeverityLevel {
 	switch {
-		case errorRegex.MatchString(msg):
-			return config.SeverityLevel("error")
-		case warnRegex.MatchString(msg):
-			return config.SeverityLevel("warn")
-		case infoRegex.MatchString(msg):
-			return config.SeverityLevel("info")
-		case debugRegex.MatchString(msg):
-			return config.SeverityLevel("debug")
-		default:
-			return config.SeverityLevel("error")
+	case errorRegex.MatchString(msg):
+		return config.SeverityLevel("error")
+	case warnRegex.MatchString(msg):
+		return config.SeverityLevel("warn")
+	case infoRegex.MatchString(msg):
+		return config.SeverityLevel("info")
+	case debugRegex.MatchString(msg):
+		return config.SeverityLevel("debug")
+	default:
+		return config.SeverityLevel("error")
 	}
 }
 
@@ -44,6 +46,7 @@ type FilterSettings struct {
 	Whitelist   []*regexp.Regexp
 	Blacklist   []*regexp.Regexp
 }
+
 func NewFilterSettings(
 	minSeverity config.SeverityLevel,
 	whitelistPatterns []string,
@@ -87,12 +90,12 @@ func NewFilterSettings(
 	}, nil
 }
 
-
 func handleDeployLogsAsync(
 	ctx context.Context,
 	deployLogsProcessed *atomic.Int64,
 	serviceLogTrack chan []environment_logs.EnvironmentLogWithMetadata,
 	filter FilterSettings,
+	sentryDedup *deduplicator.Deduplicator,
 ) {
 	go func() {
 		for {
@@ -111,7 +114,6 @@ func handleDeployLogsAsync(
 					if detectedSeverity.Rank() < filter.MinSeverity.Rank() {
 						continue
 					}
-
 
 					if len(filter.Whitelist) > 0 {
 						matched := false
@@ -149,6 +151,20 @@ func handleDeployLogsAsync(
 				// fmt.Printfs("Payload: %s\n", filteredLogs)
 
 				for _, log := range filteredLogs {
+					// Sentry dedup: suppress repeated identical errors within window
+					if sentryDedup != nil {
+						msg := util.StripAnsi(log.Log.Message)
+						sig := deduplicator.SignatureForDeployLog(
+							msg,
+							log.Metadata["service_id"],
+							log.Metadata["deployment_id"],
+							log.Log.Severity,
+						)
+						if !sentryDedup.RecordAndShouldSend(sig) {
+							continue // suppress duplicate
+						}
+					}
+
 					// Send each log individually
 					if serializedLog, err := webhook.SendDeployLogsWebhook([]environment_logs.EnvironmentLogWithMetadata{log}); err != nil {
 						attrs := []any{logger.ErrAttr(err)}

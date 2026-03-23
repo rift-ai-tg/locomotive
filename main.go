@@ -8,6 +8,7 @@ import (
 	"sync/atomic"
 
 	"github.com/brody192/locomotive/internal/config"
+	"github.com/brody192/locomotive/internal/deduplicator"
 	"github.com/brody192/locomotive/internal/errgroup"
 	"github.com/brody192/locomotive/internal/logger"
 	"github.com/brody192/locomotive/internal/railway"
@@ -86,11 +87,21 @@ func main() {
 		config.Global.Blacklist,
 	)
 	fmt.Printf("%s\n", filter_settings)
+
+	var sentryDedup *deduplicator.Deduplicator
+	if config.Global.WebhookMode == config.WebhookModeSentry {
+		sentryDedup = deduplicator.New(config.Global.SentryDedupWindow)
+		logger.Stdout.Info("Sentry deduplication enabled",
+			slog.Duration("window", config.Global.SentryDedupWindow),
+		)
+	}
+
 	handleDeployLogsAsync(
 		ctx,
 		&deployLogsProcessed,
 		serviceLogTrack,
 		filter_settings,
+		sentryDedup,
 	)
 	handleHttpLogsAsync(ctx, &httpLogsProcessed, httpLogTrack)
 
