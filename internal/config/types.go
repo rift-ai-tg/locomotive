@@ -78,6 +78,10 @@ type config struct {
 	
 	ReportStatusEvery time.Duration `env:"REPORT_STATUS_EVERY" envDefault:"1m"`
 
+	// SentryDedupWindow suppresses repeated identical logs (message+source) within this window.
+	// Only applies when WebhookMode is sentry. Default 1m reduces tick-cycle spam.
+	SentryDedupWindow time.Duration `env:"SENTRY_DEDUP_WINDOW" envDefault:"1m"`
+
 	EnableHttpLogs   bool `env:"ENABLE_HTTP_LOGS" envDefault:"false"`
 	EnableDeployLogs bool `env:"ENABLE_DEPLOY_LOGS" envDefault:"true"`
 }

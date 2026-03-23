@@ -254,6 +254,10 @@ Configuration is done through environment variables. See explanation and example
 
     The key can again be found in the 'Client Keys (DSN)' section of the Sentry project settings; it will be the user part of the given DSN.
 
+- `LOCOMOTIVE_SENTRY_DEDUP_WINDOW` - Duration to suppress repeated identical logs (default: `1m`)
+
+    Reduces Sentry event volume from tick-cycle spam. Logs with the same message, service, deployment, and severity are deduplicated within this window. Format: Go `time.ParseDuration` (e.g. `1m`, `30s`, `5m`).
+
 Given a Sentry DSN in this format:
 
 ```
