@@ -28,16 +28,16 @@ var (
 
 func detectSeverityFromMessage(msg string) config.SeverityLevel {
 	switch {
-		case errorRegex.MatchString(msg):
-			return config.SeverityLevel("error")
-		case warnRegex.MatchString(msg):
-			return config.SeverityLevel("warn")
-		case infoRegex.MatchString(msg):
-			return config.SeverityLevel("info")
-		case debugRegex.MatchString(msg):
-			return config.SeverityLevel("debug")
-		default:
-			return config.SeverityLevel("error")
+	case errorRegex.MatchString(msg):
+		return config.SeverityLevel("error")
+	case warnRegex.MatchString(msg):
+		return config.SeverityLevel("warn")
+	case infoRegex.MatchString(msg):
+		return config.SeverityLevel("info")
+	case debugRegex.MatchString(msg):
+		return config.SeverityLevel("debug")
+	default:
+		return config.SeverityLevel("error")
 	}
 }
 
@@ -46,6 +46,7 @@ type FilterSettings struct {
 	Whitelist   []*regexp.Regexp
 	Blacklist   []*regexp.Regexp
 }
+
 func NewFilterSettings(
 	minSeverity config.SeverityLevel,
 	whitelistPatterns []string,
@@ -89,7 +90,6 @@ func NewFilterSettings(
 	}, nil
 }
 
-
 func handleDeployLogsAsync(
 	ctx context.Context,
 	deployLogsProcessed *atomic.Int64,
@@ -114,7 +114,6 @@ func handleDeployLogsAsync(
 					if detectedSeverity.Rank() < filter.MinSeverity.Rank() {
 						continue
 					}
-
 
 					if len(filter.Whitelist) > 0 {
 						matched := false
