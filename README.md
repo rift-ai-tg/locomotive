@@ -166,7 +166,57 @@ Configuration is done through environment variables. See explanation and example
     - `warn`
     - `error`
     - `fatal`
-    - 
+
+    </br>
+
+- `LOCOMOTIVE_INFO_WHITELIST` - Comma-separated Go regex patterns that classify deploy logs as **info** (in addition to built-in `INF`/`INFO`/`DBG`/`DEBUG` keywords).
+
+    **Optional**. Default: empty.
+
+    </br>
+
+- `LOCOMOTIVE_INFO_BLACKLIST` - Comma-separated Go regex patterns that block **info** classification. Matching logs fall through to warn, then error.
+
+    **Optional**. Default: empty.
+
+    </br>
+
+- `LOCOMOTIVE_WARN_WHITELIST` - Comma-separated Go regex patterns that classify deploy logs as **warn** (in addition to built-in `WRN`/`WARN`/`WARNING` keywords).
+
+    **Optional**. Default: empty.
+
+    </br>
+
+- `LOCOMOTIVE_WARN_BLACKLIST` - Comma-separated Go regex patterns that block **warn** classification. Matching logs fall through to error.
+
+    **Optional**. Default: empty.
+
+    </br>
+
+- `LOCOMOTIVE_ERROR_WHITELIST` - Comma-separated Go regex patterns for custom **error** signatures (e.g. panic traces). Anything that does not match info or warn is sent as error by default.
+
+    **Optional**. Default: empty.
+
+    </br>
+
+- `LOCOMOTIVE_ERROR_BLACKLIST` - Comma-separated Go regex patterns that **drop** matching logs. These logs are not forwarded.
+
+    **Optional**. Default: empty.
+
+    </br>
+
+    **Severity classification order** (deploy logs only):
+
+    1. **Info** — built-in info/debug keywords or `INFO_WHITELIST`, unless `INFO_BLACKLIST` matches (fall through)
+    2. **Warn** — built-in warn keywords or `WARN_WHITELIST`, unless `WARN_BLACKLIST` matches (fall through)
+    3. **Error** — default for all remaining logs, unless `ERROR_BLACKLIST` matches (ignored)
+
+    Example:
+
+    ```bash
+    LOCOMOTIVE_INFO_WHITELIST=heartbeat,health.?check
+    LOCOMOTIVE_ERROR_BLACKLIST=stack trace|goroutine
+    ```
 
     </br>
 

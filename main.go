@@ -16,6 +16,13 @@ import (
 	"github.com/brody192/locomotive/internal/railway/subscribe/http_logs"
 )
 
+func printPatternList(label string, patterns []string) {
+	fmt.Printf("%s:\n", label)
+	for _, v := range patterns {
+		fmt.Printf("  \"%s\"\n", v)
+	}
+}
+
 func main() {
 	logger.Stdout.Info("Preparing the locomotive for departure...")
 
@@ -62,15 +69,12 @@ func main() {
 		slog.String("min_severity", string(config.Global.MinSeverity)),
 	)
 	fmt.Printf("severity level: %s\n", config.Global.MinSeverity)
-	fmt.Println("whitelist filter:")
-	for _, v := range config.Global.Whitelist {
-		fmt.Printf("  \"%s\"\n", v)
-	}
-
-	fmt.Println("blacklist filter:")
-	for _, v := range config.Global.Blacklist {
-		fmt.Printf("  \"%s\"\n", v)
-	}
+	printPatternList("info whitelist", config.Global.InfoWhitelist)
+	printPatternList("info blacklist", config.Global.InfoBlacklist)
+	printPatternList("warn whitelist", config.Global.WarnWhitelist)
+	printPatternList("warn blacklist", config.Global.WarnBlacklist)
+	printPatternList("error whitelist", config.Global.ErrorWhitelist)
+	printPatternList("error blacklist", config.Global.ErrorBlacklist)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -81,12 +85,19 @@ func main() {
 	httpLogsProcessed := atomic.Int64{}
 
 	reportStatusAsync(&deployLogsProcessed, &httpLogsProcessed)
-	filter_settings, _ := NewFilterSettings(
+	filterSettings, err := NewFilterSettings(
 		config.Global.MinSeverity,
-		config.Global.Whitelist,
-		config.Global.Blacklist,
+		config.Global.InfoWhitelist,
+		config.Global.InfoBlacklist,
+		config.Global.WarnWhitelist,
+		config.Global.WarnBlacklist,
+		config.Global.ErrorWhitelist,
+		config.Global.ErrorBlacklist,
 	)
-	fmt.Printf("%s\n", filter_settings)
+	if err != nil {
+		logger.Stderr.Error("error compiling log filter patterns", logger.ErrAttr(err))
+		os.Exit(1)
+	}
 
 	var sentryDedup *deduplicator.Deduplicator
 	if config.Global.WebhookMode == config.WebhookModeSentry {
@@ -100,7 +111,7 @@ func main() {
 		ctx,
 		&deployLogsProcessed,
 		serviceLogTrack,
-		filter_settings,
+		filterSettings,
 		sentryDedup,
 	)
 	handleHttpLogsAsync(ctx, &httpLogsProcessed, httpLogTrack)
