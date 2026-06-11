@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"os"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -20,7 +22,29 @@ import (
 
 var (
 	serializeRegex = regexp.MustCompile(`\x1b\[[0-9;]*m`)
+	debugEnabled   bool
 )
+
+func init() {
+	debugEnabled, _ = strconv.ParseBool(os.Getenv("DEBUG"))
+}
+
+func debugLog(tag, message string) {
+	if !debugEnabled {
+		return
+	}
+
+	fmt.Fprintf(os.Stderr, "[%s]\n\t%s\n", tag, message)
+}
+
+func truncateForDebug(msg string, maxLen int) string {
+	msg = strings.ReplaceAll(msg, "\n", `\n`)
+	if len(msg) <= maxLen {
+		return msg
+	}
+
+	return msg[:maxLen] + "..."
+}
 
 func matchesAny(msg string, patterns []*regexp.Regexp) bool {
 	for _, re := range patterns {
@@ -72,32 +96,65 @@ func detectLeadingSeverity(msg string) (config.SeverityLevel, bool) {
 func classifySeverity(msg string, filter FilterSettings) (config.SeverityLevel, bool) {
 	severity, ok := detectLeadingSeverity(msg)
 	if !ok {
+		debugLog("classify", "dropped: no leading severity marker in "+truncateForDebug(msg, 160))
 		return "", false
 	}
+
+	leadingSeverity := severity
+	whitelistOverride := "none"
 
 	switch {
 	case matchesAny(msg, filter.InfoWhitelist):
 		severity = config.SeverityInfo
+		whitelistOverride = "info"
 	case matchesAny(msg, filter.WarnWhitelist):
 		severity = config.SeverityWarn
+		whitelistOverride = "warn"
 	case matchesAny(msg, filter.ErrorWhitelist):
 		severity = config.SeverityError
+		whitelistOverride = "error"
 	}
 
 	switch severity {
 	case config.SeverityDebug, config.SeverityInfo:
 		if matchesAny(msg, filter.InfoBlacklist) {
+			debugLog("classify", fmt.Sprintf(
+				"dropped by info blacklist | leading=%s whitelist=%s | %s",
+				leadingSeverity,
+				whitelistOverride,
+				truncateForDebug(msg, 160),
+			))
 			return "", false
 		}
 	case config.SeverityWarn:
 		if matchesAny(msg, filter.WarnBlacklist) {
+			debugLog("classify", fmt.Sprintf(
+				"dropped by warn blacklist | leading=%s whitelist=%s | %s",
+				leadingSeverity,
+				whitelistOverride,
+				truncateForDebug(msg, 160),
+			))
 			return "", false
 		}
 	case config.SeverityError, config.SeverityFatal:
 		if matchesAny(msg, filter.ErrorBlacklist) {
+			debugLog("classify", fmt.Sprintf(
+				"dropped by error blacklist | leading=%s whitelist=%s | %s",
+				leadingSeverity,
+				whitelistOverride,
+				truncateForDebug(msg, 160),
+			))
 			return "", false
 		}
 	}
+
+	debugLog("classify", fmt.Sprintf(
+		"leading=%s final=%s whitelist=%s | %s",
+		leadingSeverity,
+		severity,
+		whitelistOverride,
+		truncateForDebug(msg, 160),
+	))
 
 	return severity, true
 }
@@ -183,6 +240,19 @@ func NewFilterSettings(
 	}, nil
 }
 
+func logFilterSettings(filter FilterSettings) {
+	debugLog("filter-config", fmt.Sprintf("debug=%v min_severity=%s", debugEnabled, filter.MinSeverity))
+	logCompiledPatterns("info_whitelist", filter.InfoWhitelist)
+	logCompiledPatterns("warn_whitelist", filter.WarnWhitelist)
+	logCompiledPatterns("error_whitelist", filter.ErrorWhitelist)
+}
+
+func logCompiledPatterns(label string, patterns []*regexp.Regexp) {
+	for i, pattern := range patterns {
+		debugLog("filter-config", fmt.Sprintf("%s[%d]=%s", label, i, pattern.String()))
+	}
+}
+
 func handleDeployLogsAsync(
 	ctx context.Context,
 	deployLogsProcessed *atomic.Int64,
@@ -201,6 +271,7 @@ func handleDeployLogsAsync(
 				for _, logEntry := range logs {
 					logMsg := serializeRegex.ReplaceAllString(logEntry.Log.Message, "")
 					if len(logMsg) <= util.MinEventTextLength {
+						debugLog("filter", fmt.Sprintf("dropped: message too short (%d chars) | %s", len(logMsg), truncateForDebug(logMsg, 160)))
 						continue
 					}
 
@@ -212,6 +283,12 @@ func handleDeployLogsAsync(
 					logEntry.Log.Severity = string(detectedSeverity)
 
 					if detectedSeverity.Rank() < filter.MinSeverity.Rank() {
+						debugLog("filter", fmt.Sprintf(
+							"dropped: below min severity (detected=%s min=%s) | %s",
+							detectedSeverity,
+							filter.MinSeverity,
+							truncateForDebug(logMsg, 160),
+						))
 						continue
 					}
 
@@ -232,9 +309,20 @@ func handleDeployLogsAsync(
 							log.Log.Severity,
 						)
 						if !sentryDedup.RecordAndShouldSend(sig) {
+							debugLog("sentry", fmt.Sprintf(
+								"dropped: deduplicated (level=%s) | %s",
+								log.Log.Severity,
+								truncateForDebug(msg, 160),
+							))
 							continue
 						}
 					}
+
+					debugLog("sentry", fmt.Sprintf(
+						"sending level=%s | %s",
+						log.Log.Severity,
+						truncateForDebug(util.StripAnsi(log.Log.Message), 160),
+					))
 
 					if serializedLog, err := webhook.SendDeployLogsWebhook([]environment_logs.EnvironmentLogWithMetadata{log}); err != nil {
 						attrs := []any{logger.ErrAttr(err)}

@@ -96,3 +96,33 @@ func TestClassifySeverityRequiresExplicitErrorSignal(t *testing.T) {
 		})
 	}
 }
+
+func TestClassifySeverityUnknownOrderStatusWarnWhitelist(t *testing.T) {
+	t.Parallel()
+
+	filter, err := NewFilterSettings(
+		config.SeverityInfo,
+		nil,
+		nil,
+		[]string{
+			`(?i)received unknown order status, time to add new status status=marginCanceled`,
+			`(?i)received unknown order status, time to add new status status=selfTradeCanceled`,
+			`(?i)received unknown order status, time to add new status status=tooAggressiveAtOpenInterestCapRejected`,
+		},
+		nil,
+		nil,
+		nil,
+	)
+	if err != nil {
+		t.Fatalf("NewFilterSettings() error = %v", err)
+	}
+
+	msg := "2026-06-11T16:41:51.906Z ERR received unknown order status, time to add new status status=tooAggressiveAtOpenInterestCapRejected"
+	got, ok := classifySeverity(msg, filter)
+	if !ok {
+		t.Fatalf("classifySeverity() did not classify %q", msg)
+	}
+	if got != config.SeverityWarn {
+		t.Fatalf("classifySeverity() = %q, want %q", got, config.SeverityWarn)
+	}
+}

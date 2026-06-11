@@ -98,6 +98,7 @@ func main() {
 		logger.Stderr.Error("error compiling log filter patterns", logger.ErrAttr(err))
 		os.Exit(1)
 	}
+	logFilterSettings(filterSettings)
 
 	var sentryDedup *deduplicator.Deduplicator
 	if config.Global.WebhookMode == config.WebhookModeSentry {
