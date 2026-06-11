@@ -40,12 +40,14 @@ func getSeverityNumber(severity string) int {
 	}
 }
 
+// normalizeLevel maps locomotive severity to Sentry event level values.
+// Sentry events accept fatal, error, warning, info, and debug — not "warn".
 func normalizeLevel(level string) string {
 	level = strings.ToLower(level)
 
 	switch level {
-	case "warning":
-		return "warn"
+	case "warn", "warning":
+		return "warning"
 	case "err":
 		return "error"
 	default:
