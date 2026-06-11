@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"strings"
 	"sync/atomic"
+	"time"
 
 	"github.com/brody192/locomotive/internal/config"
 	"github.com/brody192/locomotive/internal/deduplicator"
@@ -18,10 +19,6 @@ import (
 )
 
 var (
-	warnRegex  = regexp.MustCompile(`(?i)\b(WRN|WARN|WARNING)\b`)
-	infoRegex  = regexp.MustCompile(`(?i)\b(INF|INFO)\b`)
-	debugRegex = regexp.MustCompile(`(?i)\b(DBG|DEBUG)\b`)
-
 	serializeRegex = regexp.MustCompile(`\x1b\[[0-9;]*m`)
 )
 
@@ -34,25 +31,75 @@ func matchesAny(msg string, patterns []*regexp.Regexp) bool {
 	return false
 }
 
-func classifySeverity(msg string, filter FilterSettings) (config.SeverityLevel, bool) {
-	if (infoRegex.MatchString(msg) || debugRegex.MatchString(msg) || matchesAny(msg, filter.InfoWhitelist)) &&
-		!matchesAny(msg, filter.InfoBlacklist) {
-		if debugRegex.MatchString(msg) {
-			return config.SeverityDebug, true
-		}
+func severityFromToken(token string) (config.SeverityLevel, bool) {
+	switch strings.ToUpper(strings.Trim(token, "[]:")) {
+	case "DBG", "DEBUG":
+		return config.SeverityDebug, true
+	case "INF", "INFO":
 		return config.SeverityInfo, true
-	}
-
-	if (warnRegex.MatchString(msg) || matchesAny(msg, filter.WarnWhitelist)) &&
-		!matchesAny(msg, filter.WarnBlacklist) {
+	case "WRN", "WARN", "WARNING":
 		return config.SeverityWarn, true
+	case "ERR", "ERROR":
+		return config.SeverityError, true
+	case "FATAL", "FTL":
+		return config.SeverityFatal, true
+	default:
+		return "", false
 	}
+}
 
-	if matchesAny(msg, filter.ErrorBlacklist) {
+func detectLeadingSeverity(msg string) (config.SeverityLevel, bool) {
+	fields := strings.Fields(msg)
+	if len(fields) == 0 {
 		return "", false
 	}
 
-	return config.SeverityError, true
+	if severity, ok := severityFromToken(fields[0]); ok {
+		return severity, true
+	}
+
+	if len(fields) < 2 {
+		return "", false
+	}
+
+	if _, err := time.Parse(time.RFC3339Nano, fields[0]); err != nil {
+		return "", false
+	}
+
+	return severityFromToken(fields[1])
+}
+
+func classifySeverity(msg string, filter FilterSettings) (config.SeverityLevel, bool) {
+	severity, ok := detectLeadingSeverity(msg)
+	if !ok {
+		return "", false
+	}
+
+	switch {
+	case matchesAny(msg, filter.InfoWhitelist):
+		severity = config.SeverityInfo
+	case matchesAny(msg, filter.WarnWhitelist):
+		severity = config.SeverityWarn
+	case matchesAny(msg, filter.ErrorWhitelist):
+		severity = config.SeverityError
+	}
+
+	switch severity {
+	case config.SeverityDebug, config.SeverityInfo:
+		if matchesAny(msg, filter.InfoBlacklist) {
+			return "", false
+		}
+	case config.SeverityWarn:
+		if matchesAny(msg, filter.WarnBlacklist) {
+			return "", false
+		}
+	case config.SeverityError, config.SeverityFatal:
+		if matchesAny(msg, filter.ErrorBlacklist) {
+			return "", false
+		}
+	}
+
+	return severity, true
 }
 
 type FilterSettings struct {

@@ -193,7 +193,7 @@ Configuration is done through environment variables. See explanation and example
 
     </br>
 
-- `LOCOMOTIVE_ERROR_WHITELIST` - Comma-separated Go regex patterns for custom **error** signatures (e.g. panic traces). Anything that does not match info or warn is sent as error by default.
+- `LOCOMOTIVE_ERROR_WHITELIST` - Comma-separated Go regex patterns for custom **error** signatures (e.g. panic traces), in addition to built-in `ERR`/`ERROR` keywords. Messages that do not match any severity rule are ignored.
 
     **Optional**. Default: empty.
 
@@ -209,7 +209,8 @@ Configuration is done through environment variables. See explanation and example
 
     1. **Info** — built-in info/debug keywords or `INFO_WHITELIST`, unless `INFO_BLACKLIST` matches (fall through)
     2. **Warn** — built-in warn keywords or `WARN_WHITELIST`, unless `WARN_BLACKLIST` matches (fall through)
-    3. **Error** — default for all remaining logs, unless `ERROR_BLACKLIST` matches (ignored)
+    3. **Error/Fatal** — built-in error/fatal keywords or `ERROR_WHITELIST`, unless `ERROR_BLACKLIST` matches (ignored)
+    4. **Unmatched** — ignored
 
     Example:
 

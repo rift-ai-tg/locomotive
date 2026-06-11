@@ -41,6 +41,8 @@ func (s SeverityLevel) Rank() int {
 		return 2
 	case SeverityError:
 		return 3
+	case SeverityFatal:
+		return 4
 	default:
 		return 0 // fallback to debug
 	}
@@ -79,7 +81,7 @@ type config struct {
 	WarnBlacklist  []string `env:"WARN_BLACKLIST" envSeparator:"," envDefault:""`
 	ErrorWhitelist []string `env:"ERROR_WHITELIST" envSeparator:"," envDefault:""`
 	ErrorBlacklist []string `env:"ERROR_BLACKLIST" envSeparator:"," envDefault:""`
-	
+
 	ReportStatusEvery time.Duration `env:"REPORT_STATUS_EVERY" envDefault:"1m"`
 
 	// SentryDedupWindow suppresses repeated identical logs (message+source) within this window.
