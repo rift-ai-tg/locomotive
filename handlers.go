@@ -118,32 +118,32 @@ func classifySeverity(msg string, filter FilterSettings) (config.SeverityLevel, 
 	switch severity {
 	case config.SeverityDebug, config.SeverityInfo:
 		if matchesAny(msg, filter.InfoBlacklist) {
-			debugLog("classify", fmt.Sprintf(
-				"dropped by info blacklist | leading=%s whitelist=%s | %s",
-				leadingSeverity,
-				whitelistOverride,
-				truncateForDebug(msg, 160),
-			))
+			// debugLog("classify", fmt.Sprintf(
+			// 	"dropped by info blacklist | leading=%s whitelist=%s | %s",
+			// 	leadingSeverity,
+			// 	whitelistOverride,
+			// 	truncateForDebug(msg, 160),
+			// ))
 			return "", false
 		}
 	case config.SeverityWarn:
 		if matchesAny(msg, filter.WarnBlacklist) {
-			debugLog("classify", fmt.Sprintf(
-				"dropped by warn blacklist | leading=%s whitelist=%s | %s",
-				leadingSeverity,
-				whitelistOverride,
-				truncateForDebug(msg, 160),
-			))
+			// debugLog("classify", fmt.Sprintf(
+			// 	"dropped by warn blacklist | leading=%s whitelist=%s | %s",
+			// 	leadingSeverity,
+			// 	whitelistOverride,
+			// 	truncateForDebug(msg, 160),
+			// ))
 			return "", false
 		}
 	case config.SeverityError, config.SeverityFatal:
 		if matchesAny(msg, filter.ErrorBlacklist) {
-			debugLog("classify", fmt.Sprintf(
-				"dropped by error blacklist | leading=%s whitelist=%s | %s",
-				leadingSeverity,
-				whitelistOverride,
-				truncateForDebug(msg, 160),
-			))
+			// debugLog("classify", fmt.Sprintf(
+			// 	"dropped by error blacklist | leading=%s whitelist=%s | %s",
+			// 	leadingSeverity,
+			// 	whitelistOverride,
+			// 	truncateForDebug(msg, 160),
+			// ))
 			return "", false
 		}
 	}
