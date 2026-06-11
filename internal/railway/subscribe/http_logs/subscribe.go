@@ -15,6 +15,7 @@ import (
 	"github.com/brody192/locomotive/internal/railway/subscribe"
 	"github.com/brody192/locomotive/internal/railway/subscribe/deployment_changes"
 	"github.com/brody192/locomotive/internal/slice"
+	"github.com/brody192/locomotive/internal/util"
 	"github.com/coder/websocket"
 	"github.com/flexstack/uuid"
 )
@@ -332,6 +333,9 @@ func getHttpLogs(ctx context.Context, g *railway.GraphQLClient, initialDeploymen
 						slog.String("from", "getHttpLogs_payload_range"),
 						logger.ErrAttr(err),
 					)
+				}
+				if len(path) <= util.MinEventTextLength {
+					continue
 				}
 
 				statusCode, err := getInt64AttributeFromHttpLog(logs.Payload.Data.HTTPLogs[i], "httpStatus")

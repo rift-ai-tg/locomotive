@@ -7,6 +7,8 @@ import (
 	"unicode"
 )
 
+const MinEventTextLength = 4
+
 func ByteCountIEC(b uint64) string {
 	const unit = 1024
 

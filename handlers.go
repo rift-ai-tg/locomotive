@@ -153,6 +153,10 @@ func handleDeployLogsAsync(
 
 				for _, logEntry := range logs {
 					logMsg := serializeRegex.ReplaceAllString(logEntry.Log.Message, "")
+					if len(logMsg) <= util.MinEventTextLength {
+						continue
+					}
+
 					detectedSeverity, ok := classifySeverity(logMsg, filter)
 					if !ok {
 						continue
