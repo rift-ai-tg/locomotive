@@ -73,8 +73,12 @@ type config struct {
 
 	MinSeverity SeverityLevel `env:"MIN_SEVERITY" envDefault:"debug"`
 
-	Whitelist []string `env:"WHITELIST" envSeparator:"," envDefault:""`
-	Blacklist []string `env:"BLACKLIST" envSeparator:"," envDefault:""`
+	InfoWhitelist  []string `env:"INFO_WHITELIST" envSeparator:"," envDefault:""`
+	InfoBlacklist  []string `env:"INFO_BLACKLIST" envSeparator:"," envDefault:""`
+	WarnWhitelist  []string `env:"WARN_WHITELIST" envSeparator:"," envDefault:""`
+	WarnBlacklist  []string `env:"WARN_BLACKLIST" envSeparator:"," envDefault:""`
+	ErrorWhitelist []string `env:"ERROR_WHITELIST" envSeparator:"," envDefault:""`
+	ErrorBlacklist []string `env:"ERROR_BLACKLIST" envSeparator:"," envDefault:""`
 	
 	ReportStatusEvery time.Duration `env:"REPORT_STATUS_EVERY" envDefault:"1m"`
 
